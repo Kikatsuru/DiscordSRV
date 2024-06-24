@@ -58,7 +58,12 @@ public class NMSUtil {
         }
 
         try {
-            class_EntityPlayer = fixBukkitClass("net.minecraft.server.EntityPlayer", "net.minecraft.server.level.EntityPlayer");
+            try {
+                class_EntityPlayer = fixBukkitClass("net.minecraft.server.EntityPlayer", "net.minecraft.server.level.EntityPlayer");
+            } catch (ClassNotFoundException e) {
+                class_EntityPlayer = fixBukkitClass("net.minecraft.server.ServerPlayer", "net.minecraft.server.level.ServerPlayer");
+            }
+
             try {
                 method_EntityPlayer_getGameProfile = class_EntityPlayer.getMethod("getProfile");
             } catch (NoSuchMethodException e) {
