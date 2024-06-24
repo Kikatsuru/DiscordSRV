@@ -20,6 +20,7 @@
 
 package github.scarsz.discordsrv.objects.managers.link;
 
+import com.mysql.cj.jdbc.Driver;
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.objects.ExpiringDualHashBidiMap;
@@ -120,16 +121,7 @@ public class JdbcAccountLinkManager extends AbstractAccountLinkManager {
         if (StringUtils.isNotBlank(jdbcUsername)) properties.put("user", jdbcUsername);
         if (StringUtils.isNotBlank(jdbcPassword)) properties.put("password", jdbcPassword);
 
-        Connection conn;
-        try {
-            // new driver
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            conn = new com.mysql.cj.jdbc.NonRegisteringDriver().connect(jdbc, properties);
-        } catch (ClassNotFoundException ignored) {
-            // old driver
-            conn = new com.mysql.jdbc.Driver().connect(jdbc, properties);
-        }
-        this.connection = conn;
+        this.connection = new Driver().connect(jdbc, properties);
 
         database = connection.getCatalog();
         String tablePrefix = DiscordSRV.config().getString("Experiment_JdbcTablePrefix");
