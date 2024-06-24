@@ -31,27 +31,24 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.plugin.Plugin;
-import ru.mrbrikster.chatty.api.ChattyApi;
-import ru.mrbrikster.chatty.api.chats.Chat;
-import ru.mrbrikster.chatty.api.events.ChattyMessageEvent;
-
-import java.lang.reflect.InvocationTargetException;
-import java.util.Collection;
+import ru.brikster.chatty.api.ChattyApi;
+import ru.brikster.chatty.api.event.ChattyMessageEvent;
+import ru.brikster.chatty.api.chat.Chat;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public class ChattyChatHook implements ChatHook {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChattyMessage(ChattyMessageEvent event) {
-        DiscordSRV.getPlugin().processChatMessage(event.getPlayer(), event.getMessage(), event.getChat().getName(), false, event);
+        DiscordSRV.getPlugin().processChatMessage(event.getSender(), event.getPlainMessage(), event.getChat().getId(), false, event);
     }
 
     @Override
     public void broadcastMessageToChannel(String channel, Component message) {
-        ChattyApi api = getApi();
-        if (api == null) return;
+        ChattyApi api = ChattyApi.instance();
 
-        Optional<Chat> optChat = api.getChat(channel);
+        Optional<Chat> optChat = Optional.ofNullable(api.getChats().get(channel));
         if (!optChat.isPresent()) {
             DiscordSRV.debug(Debug.DISCORD_TO_MINECRAFT, "Attempted to broadcast message to channel \"" + channel + "\" but the channel doesn't exist (returned null); aborting message send");
             return;
@@ -61,26 +58,16 @@ public class ChattyChatHook implements ChatHook {
         String legacy = MessageUtil.toLegacy(message);
         String plainMessage = LangUtil.Message.CHAT_CHANNEL_MESSAGE.toString()
                 .replace("%channelcolor%", "")
-                .replace("%channelname%", chat.getName())
-                .replace("%channelnickname%", chat.getName())
+                .replace("%channelname%", chat.getDisplayName())
+                .replace("%channelnickname%", chat.getDisplayName())
                 .replace("%message%", legacy);
 
-        Collection<? extends Player> recipients = chat.getRecipients(null);
-        DiscordSRV.debug(Debug.DISCORD_TO_MINECRAFT, "Sending a message to Chatty chat (" + chat.getName() + "), recipients: " + recipients);
+        Predicate<Player> recipients = chat.getRecipientPredicate(null);
+        DiscordSRV.debug(Debug.DISCORD_TO_MINECRAFT, "Sending a message to Chatty chat (" + chat.getDisplayName() + "), recipients: " + recipients);
 
         String translatedMessage = MessageUtil.translateLegacy(plainMessage);
-        chat.sendMessage(translatedMessage);
-        PlayerUtil.notifyPlayersOfMentions(recipients::contains, legacy);
-    }
-
-    private ChattyApi getApi() {
-        Plugin chatty = getPlugin();
-        try {
-            return (ChattyApi) chatty.getClass().getMethod("api").invoke(chatty);
-        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            DiscordSRV.error("Unable to get Chatty plugin", e);
-            return null;
-        }
+        chat.sendLegacyMessage(DiscordSRV.getPlugin(), translatedMessage);
+        PlayerUtil.notifyPlayersOfMentions(recipients, legacy);
     }
 
     @Override
@@ -94,7 +81,7 @@ public class ChattyChatHook implements ChatHook {
         if (!regular) return false;
 
         try {
-            Class.forName("ru.mrbrikster.chatty.api.ChattyApi");
+            Class.forName("ru.brikster.chatty.api.ChattyApi");
         } catch (ClassNotFoundException ignore) {
             return false;
         }
